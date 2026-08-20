@@ -32,4 +32,5 @@ git_project_path: DataAgent-AI/mmu-live-image-studio
 - 已发布 V7：支持 API Key 自动回填和清除。
 - 已发布 V8：支持本机生成历史和图片保留。
 - 已发布 V9：本地历史图片保存已修复。
-- 正在优化全屏三栏布局：扩大工作区、分栏独立滚动，并限制结果图片在视口内展示。
+- 已发布 V10：全宽三栏布局、分栏独立滚动和结果图片视口适配。
+- 正在修复 Gemini 生成请求的 imageConfig.aspectRatio 映射，保持其他功能不变。

@@ -39,6 +39,14 @@ function toDataUrl(base64: string, mimeType = 'image/png') {
     return `data:${mimeType};base64,${base64}`;
 }
 
+function resolveAspectRatio(size: string) {
+    const [width, height] = size.split('x').map(Number);
+    if (!width || !height) return '1:1';
+    const divisor = (a: number, b: number): number => b ? divisor(b, a % b) : a;
+    const factor = divisor(width, height);
+    return `${width / factor}:${height / factor}`;
+}
+
 function readGeminiImages(payload: any): GeneratedImage[] {
     const images: GeneratedImage[] = [];
     for (const candidate of payload?.candidates ?? []) {
@@ -82,7 +90,10 @@ export async function generateImage(params: GenerateImageParams): Promise<Genera
     const payload = isGemini
         ? {
               contents: [{ role: 'user', parts: geminiParts }],
-              generationConfig: { responseModalities: ['IMAGE'] },
+              generationConfig: {
+                  responseModalities: ['IMAGE'],
+                  imageConfig: { aspectRatio: resolveAspectRatio(params.size) },
+              },
           }
         : {
               model: params.model,
