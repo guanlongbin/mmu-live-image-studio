@@ -24,7 +24,15 @@ export interface GeneratedImage {
 }
 
 function normalizeBaseUrl(baseUrl: string) {
-    return baseUrl.trim().replace(/\/+$/, '').replace(/\/(v1|v1beta)$/, '');
+    return baseUrl.trim().replace(/\/+$/, '');
+}
+
+function resolveEndpoint(baseUrl: string, model: ImageModelId) {
+    const origin = normalizeBaseUrl(baseUrl).replace(/\/(v1|v1beta)$/, '');
+    if (model.startsWith('gemini-')) {
+        return `${origin}/v1beta/models/${model}:generateContent`;
+    }
+    return `${origin}/v1/images/generations`;
 }
 
 function toDataUrl(base64: string, mimeType = 'image/png') {
@@ -61,11 +69,8 @@ function readOpenAiImages(payload: any): GeneratedImage[] {
  * 因此不能使用站点通用 request 封装。此函数不写入任何浏览器持久化存储。
  */
 export async function generateImage(params: GenerateImageParams): Promise<GeneratedImage[]> {
-    const baseUrl = normalizeBaseUrl(params.baseUrl);
     const isGemini = params.model.startsWith('gemini-');
-    const endpoint = isGemini
-        ? `${baseUrl}/v1beta/models/${params.model}:generateContent`
-        : `${baseUrl}/v1/images/generations`;
+    const endpoint = resolveEndpoint(params.baseUrl, params.model);
 
     const geminiParts = [
         { text: params.prompt },

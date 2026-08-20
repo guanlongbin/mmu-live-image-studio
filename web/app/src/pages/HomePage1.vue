@@ -125,11 +125,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { generateImage, type GeneratedImage, type ImageModelId, type ReferenceImageInput } from '@/services/api';
 
-const officeUrl = 'https://tokenverse.corp.kuaishou.com';
-const idcUrl = 'http://tokenverse.internal';
+const officeUrl = 'https://tokenverse.corp.kuaishou.com/v1beta';
+const idcUrl = 'http://tokenverse.internal/v1beta';
 const baseUrl = ref(officeUrl);
 const apiKey = ref('');
 const prompt = ref('');
@@ -150,7 +150,11 @@ const models = [
 
 const currentModel = computed(() => models.find((item) => item.id === model.value) ?? models[0]);
 const isGemini = computed(() => model.value.startsWith('gemini-'));
-const canGenerate = computed(() => Boolean(apiKey.value.trim() && baseUrl.value.trim() && prompt.value.trim()));
+const protocolBaseUrl = computed(() => baseUrl.value);
+const canGenerate = computed(() => Boolean(apiKey.value.trim() && protocolBaseUrl.value.trim() && prompt.value.trim()));
+watch(isGemini, (gemini) => {
+    baseUrl.value = gemini ? officeUrl : 'https://tokenverse.corp.kuaishou.com/v1';
+});
 const resultDescription = computed(() => generatedImages.value.length ? `已生成 ${generatedImages.value.length} 张图片。` : '生成完成后，图片会显示在这里。');
 
 function fileToReference(file: File) {
