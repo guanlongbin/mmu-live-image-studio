@@ -1,22 +1,109 @@
-/**
- * 业务接口层
- *
- * 通用能力（request / withBase / getAccount / getAuth）已迁移到 @ks-data/utils，
- * 此文件只保留本站点专属的业务接口。
- *
- * 注意：全局 Toast 通知已在 src/index.ts 入口通过 setGlobalNotify 统一注入，
- * 无需在此重复配置。
- */
-import { request } from '@ks-data/utils';
+export type ImageModelId =
+    | 'gemini-3-1-flash-lite-image'
+    | 'gemini-3-1-flash-image'
+    | 'gpt-image-2';
 
-// 通用能力重新导出，方便现有调用方无缝迁移
-export { request } from '@ks-data/utils';
+export interface ReferenceImageInput {
+    mimeType: string;
+    base64: string;
+}
+
+export interface GenerateImageParams {
+    apiKey: string;
+    baseUrl: string;
+    model: ImageModelId;
+    prompt: string;
+    size: string;
+    count: number;
+    referenceImages: ReferenceImageInput[];
+}
+
+export interface GeneratedImage {
+    id: string;
+    dataUrl: string;
+}
+
+function normalizeBaseUrl(baseUrl: string) {
+    return baseUrl.trim().replace(/\/+$/, '').replace(/\/(v1|v1beta)$/, '');
+}
+
+function toDataUrl(base64: string, mimeType = 'image/png') {
+    return `data:${mimeType};base64,${base64}`;
+}
+
+function readGeminiImages(payload: any): GeneratedImage[] {
+    const images: GeneratedImage[] = [];
+    for (const candidate of payload?.candidates ?? []) {
+        for (const part of candidate?.content?.parts ?? []) {
+            const inlineData = part?.inlineData;
+            if (inlineData?.data) {
+                images.push({
+                    id: crypto.randomUUID(),
+                    dataUrl: toDataUrl(inlineData.data, inlineData.mimeType || 'image/png'),
+                });
+            }
+        }
+    }
+    return images;
+}
+
+function readOpenAiImages(payload: any): GeneratedImage[] {
+    return (payload?.data ?? [])
+        .filter((item: any) => item?.b64_json)
+        .map((item: any) => ({
+            id: crypto.randomUUID(),
+            dataUrl: toDataUrl(item.b64_json),
+        }));
+}
 
 /**
- * 简单业务接口：获取某个智能应用的「猜你想问」问题。
- * 对应 data-agent: GET /rest/flow/api/v1/agents/getQueryMeta
- * 必传参数 id = 智能应用 id（426 为「磁力番薯」，可改成自己有权限的 agent id）。
+ * 图片接口需将用户运行时 API Key 直接带给用户指定的 TokenVerse 地址，
+ * 因此不能使用站点通用 request 封装。此函数不写入任何浏览器持久化存储。
  */
-export function getQueryMeta(id: number | string = 426) {
-    return request('/rest/flow/api/v1/agents/getQueryMeta', { method: 'GET', params: { id } });
+export async function generateImage(params: GenerateImageParams): Promise<GeneratedImage[]> {
+    const baseUrl = normalizeBaseUrl(params.baseUrl);
+    const isGemini = params.model.startsWith('gemini-');
+    const endpoint = isGemini
+        ? `${baseUrl}/v1beta/models/${params.model}:generateContent`
+        : `${baseUrl}/v1/images/generations`;
+
+    const geminiParts = [
+        { text: params.prompt },
+        ...params.referenceImages.map((image) => ({
+            inlineData: { mimeType: image.mimeType, data: image.base64 },
+        })),
+    ];
+
+    const payload = isGemini
+        ? {
+              contents: [{ role: 'user', parts: geminiParts }],
+              generationConfig: { responseModalities: ['IMAGE'] },
+          }
+        : {
+              model: params.model,
+              prompt: params.prompt,
+              n: params.count,
+              size: params.size,
+              response_format: 'b64_json',
+          };
+
+    const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${params.apiKey}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+    });
+    const payloadData = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        const detail = payloadData?.error?.message || payloadData?.message || `HTTP ${response.status}`;
+        throw new Error(`生成请求失败：${detail}`);
+    }
+
+    const images = isGemini ? readGeminiImages(payloadData) : readOpenAiImages(payloadData);
+    if (!images.length) {
+        throw new Error('接口已返回，但未解析到图片。请检查模型权限或服务地址。');
+    }
+    return images;
 }
