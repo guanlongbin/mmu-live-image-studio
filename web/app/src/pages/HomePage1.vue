@@ -51,9 +51,8 @@
                     <div>
                         <label class="field-label" for="size">尺寸</label>
                         <select id="size" v-model="size" class="field-input">
-                            <option value="1024x1024">1024 × 1024</option>
-                            <option value="1536x1024">1536 × 1024</option>
-                            <option value="1024x1536">1024 × 1536</option>
+                            <option v-for="preset in sizePresets" :key="preset.value" :value="preset.value">{{ preset.label }}</option>
+                            <option value="custom">自定义尺寸</option>
                         </select>
                     </div>
                     <div>
@@ -64,6 +63,17 @@
                             <option :value="3">3 张</option>
                             <option :value="4">4 张</option>
                         </select>
+                    </div>
+                </div>
+                <div v-if="size === 'custom'" class="custom-size-row">
+                    <div>
+                        <label class="field-label" for="custom-width">宽度</label>
+                        <input id="custom-width" v-model.number="customWidth" class="field-input" type="number" min="256" max="4096" step="64" />
+                    </div>
+                    <span class="size-divider">×</span>
+                    <div>
+                        <label class="field-label" for="custom-height">高度</label>
+                        <input id="custom-height" v-model.number="customHeight" class="field-input" type="number" min="256" max="4096" step="64" />
                     </div>
                 </div>
 
@@ -80,6 +90,11 @@
                     </figure>
                 </div>
 
+                <div v-if="generating" class="progress-box" aria-live="polite">
+                    <div class="progress-meta"><span>{{ progressLabel }}</span><strong>{{ progress }}%</strong></div>
+                    <div class="progress-track"><span :style="{ width: `${progress}%` }"></span></div>
+                    <p>这是请求阶段进度，不代表模型服务端的精确推理百分比。</p>
+                </div>
                 <p v-if="error" class="error-message" role="alert">{{ error }}</p>
                 <button class="generate-button" type="button" :disabled="!canGenerate || generating" @click="handleGenerate">
                     <span v-if="generating" class="spinner" aria-hidden="true"></span>
@@ -135,12 +150,27 @@ const apiKey = ref('');
 const prompt = ref('');
 const model = ref<ImageModelId>('gemini-3-1-flash-lite-image');
 const size = ref('1024x1024');
+const customWidth = ref(1024);
+const customHeight = ref(1024);
 const count = ref(1);
 const generating = ref(false);
+const progress = ref(0);
+const progressLabel = ref('准备请求');
+let progressTimer: ReturnType<typeof window.setInterval> | undefined;
 const error = ref('');
 const generatedImages = ref<GeneratedImage[]>([]);
 const previewImage = ref('');
 const referencePreviews = ref<Array<ReferenceImageInput & { id: string; dataUrl: string; name: string }>>([]);
+
+const sizePresets = [
+    { value: '1024x1024', label: '正方形 · 1024 × 1024' },
+    { value: '1536x1024', label: '横版 · 1536 × 1024（3:2）' },
+    { value: '1024x1536', label: '竖版 · 1024 × 1536（2:3）' },
+    { value: '1792x1024', label: '宽屏 · 1792 × 1024（16:9）' },
+    { value: '1024x1792', label: '长图 · 1024 × 1792（9:16）' },
+    { value: '1024x1365', label: '海报 · 1024 × 1365（3:4）' },
+    { value: '1365x1024', label: '横幅 · 1365 × 1024（4:3）' },
+];
 
 const models = [
     { id: 'gemini-3-1-flash-lite-image' as const, name: 'Nano Banana 2 Lite', protocol: 'Gemini 原生 · /v1beta generateContent' },
@@ -151,7 +181,16 @@ const models = [
 const currentModel = computed(() => models.find((item) => item.id === model.value) ?? models[0]);
 const isGemini = computed(() => model.value.startsWith('gemini-'));
 const protocolBaseUrl = computed(() => baseUrl.value);
-const canGenerate = computed(() => Boolean(apiKey.value.trim() && protocolBaseUrl.value.trim() && prompt.value.trim()));
+const resolvedSize = computed(() => size.value === 'custom' ? `${customWidth.value}x${customHeight.value}` : size.value);
+const canGenerate = computed(() => Boolean(
+    apiKey.value.trim()
+    && protocolBaseUrl.value.trim()
+    && prompt.value.trim()
+    && customWidth.value >= 256
+    && customWidth.value <= 4096
+    && customHeight.value >= 256
+    && customHeight.value <= 4096,
+));
 watch(isGemini, (gemini) => {
     baseUrl.value = gemini ? officeUrl : 'https://tokenverse.corp.kuaishou.com/v1';
 });
@@ -194,21 +233,44 @@ function clearResults() {
     previewImage.value = '';
 }
 
+function startProgress() {
+    progress.value = 8;
+    progressLabel.value = '正在校验配置';
+    progressTimer = window.setInterval(() => {
+        if (progress.value < 82) {
+            progress.value = Math.min(82, progress.value + Math.max(1, Math.round((82 - progress.value) / 7)));
+        }
+        progressLabel.value = progress.value < 35 ? '正在建立连接' : progress.value < 68 ? '模型正在生成' : '正在接收图片结果';
+    }, 900);
+}
+
+function stopProgress(success: boolean) {
+    if (progressTimer) window.clearInterval(progressTimer);
+    progressTimer = undefined;
+    progress.value = success ? 100 : 0;
+    progressLabel.value = success ? '图片已生成' : '生成请求未完成';
+}
+
 async function handleGenerate() {
     if (!canGenerate.value || generating.value) return;
     error.value = '';
     generating.value = true;
+    startProgress();
     try {
         generatedImages.value = await generateImage({
             apiKey: apiKey.value,
             baseUrl: baseUrl.value,
             model: model.value,
-            prompt: prompt.value,
-            size: size.value,
+            prompt: size.value === 'custom' && isGemini.value
+                ? `${prompt.value}\n\n请输出 ${resolvedSize.value} 像素画幅，保持该宽高比。`
+                : prompt.value,
+            size: resolvedSize.value,
             count: count.value,
             referenceImages: referencePreviews.value.map(({ mimeType, base64 }) => ({ mimeType, base64 })),
         });
+        stopProgress(true);
     } catch (requestError: any) {
+        stopProgress(false);
         error.value = requestError?.message || '无法生成图片，请检查服务地址、API Key 与模型权限后重试。';
     } finally {
         generating.value = false;
@@ -228,7 +290,7 @@ h1, h2, p { margin-top: 0; } h1 { margin-bottom: 0; font-size: 24px; line-height
 .field-label { display: block; margin: 16px 0 6px; color: var(--text_secondary); font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
 .field-input { width: 100%; border: 1px solid var(--border_form); border-radius: 6px; padding: 9px 10px; background: var(--bg_component); color: var(--text_primary); font: inherit; font-size: 14px; outline: none; transition: border-color .15s, box-shadow .15s; }
 .field-input:focus { border-color: var(--border_brand); box-shadow: 0 0 0 2px var(--bg_brand_tag); }.field-input:disabled { cursor: not-allowed; opacity: .55; }.prompt-input { resize: vertical; min-height: 130px; }.field-hint { margin: 6px 0 0; color: var(--text_tertiary); font-size: 12px; }.url-presets { display: flex; gap: 10px; justify-content: flex-end; margin-bottom: -22px; }.text-button { border: 0; padding: 0; background: none; color: var(--text_brand); font: inherit; font-size: 12px; cursor: pointer; }.text-button:hover { text-decoration: underline; }.text-button:focus-visible, .generate-button:focus-visible, .close-button:focus-visible, .reference-item button:focus-visible { outline: 2px solid var(--border_brand); outline-offset: 2px; }
-.parameter-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }.upload-zone { display: flex; min-height: 90px; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 1px dashed var(--border_form); border-radius: 6px; color: var(--text_brand); cursor: pointer; font-size: 13px; }.upload-zone:hover { border-color: var(--border_brand); background: var(--bg_brand_contain); }.upload-zone small { color: var(--text_tertiary); }.upload-zone input { display: none; }.reference-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }.reference-item { position: relative; width: 64px; height: 64px; margin: 0; overflow: hidden; border: 1px solid var(--border_divider); border-radius: 6px; }.reference-item img { width: 100%; height: 100%; object-fit: cover; }.reference-item button { position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; border: 0; border-radius: 50%; background: var(--bg_component); color: var(--text_primary); cursor: pointer; }.error-message { margin: 14px 0 0; color: var(--text_negative); font-size: 12px; }.generate-button { width: 100%; min-height: 40px; margin-top: 18px; border: 0; border-radius: 6px; background: var(--text_brand); color: #fff; cursor: pointer; font-size: 14px; font-weight: 700; transition: opacity .15s, transform .15s; }.generate-button:hover { opacity: .9; }.generate-button:active { transform: scale(.98); }.generate-button:disabled { cursor: not-allowed; opacity: .45; }.spinner, .result-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; }.spinner { margin-right: 7px; }
+.parameter-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }.custom-size-row { display: grid; grid-template-columns: 1fr 16px 1fr; align-items: end; gap: 8px; }.custom-size-row .field-label { margin-top: 12px; }.size-divider { padding-bottom: 10px; color: var(--text_tertiary); text-align: center; }.progress-box { margin-top: 16px; padding: 10px; border: 1px solid var(--border_divider); border-radius: 6px; background: var(--bg_brand_contain); }.progress-meta { display: flex; justify-content: space-between; gap: 10px; color: var(--text_secondary); font-size: 12px; }.progress-meta strong { color: var(--text_brand); }.progress-track { height: 6px; margin-top: 8px; overflow: hidden; border-radius: 6px; background: var(--bg_tag); }.progress-track span { display: block; height: 100%; border-radius: inherit; background: var(--text_brand); transition: width .45s ease; }.progress-box p { margin: 7px 0 0; color: var(--text_tertiary); font-size: 11px; line-height: 1.45; }.upload-zone { display: flex; min-height: 90px; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 1px dashed var(--border_form); border-radius: 6px; color: var(--text_brand); cursor: pointer; font-size: 13px; }.upload-zone:hover { border-color: var(--border_brand); background: var(--bg_brand_contain); }.upload-zone small { color: var(--text_tertiary); }.upload-zone input { display: none; }.reference-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }.reference-item { position: relative; width: 64px; height: 64px; margin: 0; overflow: hidden; border: 1px solid var(--border_divider); border-radius: 6px; }.reference-item img { width: 100%; height: 100%; object-fit: cover; }.reference-item button { position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; border: 0; border-radius: 50%; background: var(--bg_component); color: var(--text_primary); cursor: pointer; }.error-message { margin: 14px 0 0; color: var(--text_negative); font-size: 12px; }.generate-button { width: 100%; min-height: 40px; margin-top: 18px; border: 0; border-radius: 6px; background: var(--text_brand); color: #fff; cursor: pointer; font-size: 14px; font-weight: 700; transition: opacity .15s, transform .15s; }.generate-button:hover { opacity: .9; }.generate-button:active { transform: scale(.98); }.generate-button:disabled { cursor: not-allowed; opacity: .45; }.spinner, .result-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; }.spinner { margin-right: 7px; }
 .result-panel { min-height: 680px; padding: 20px; }.result-header { display: flex; align-items: flex-start; justify-content: space-between; padding-bottom: 16px; border-bottom: 1px solid var(--border_divider); }.result-header p { margin-bottom: 0; }.result-state { display: flex; min-height: 560px; flex-direction: column; align-items: center; justify-content: center; text-align: center; }.result-state strong { font-size: 15px; }.result-state p { max-width: 360px; margin: 8px 0 0; }.result-spinner { width: 22px; height: 22px; margin-bottom: 12px; color: var(--text_brand); }.image-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; padding-top: 18px; }.image-card { overflow: hidden; border: 1px solid var(--border_divider); border-radius: 6px; background: var(--bg_layout); }.image-card img { display: block; width: 100%; aspect-ratio: 1 / 1; object-fit: cover; cursor: zoom-in; }.image-card footer { display: flex; justify-content: space-between; padding: 10px; color: var(--text_secondary); font-size: 12px; }.image-card a { color: var(--text_brand); text-decoration: none; }.image-card a:hover { text-decoration: underline; }.preview-overlay { position: fixed; z-index: 400; inset: 0; display: flex; align-items: center; justify-content: center; padding: 36px; background: rgba(0, 0, 0, .75); }.preview-overlay img { max-width: 100%; max-height: 100%; object-fit: contain; }.close-button { position: fixed; top: 16px; right: 18px; width: 38px; height: 38px; border: 0; border-radius: 6px; background: var(--bg_component); color: var(--text_primary); cursor: pointer; font-size: 24px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (max-width: 860px) { .studio-shell { padding: 16px; }.topbar { gap: 12px; }.workspace { grid-template-columns: 1fr; }.result-panel { min-height: 480px; }.result-state { min-height: 360px; } }
