@@ -293,9 +293,9 @@ async function persistCurrentSession() {
         model: model.value,
         size: resolvedSize.value,
         count: count.value,
-        images: generatedImages.value,
+        images: generatedImages.value.map(({ id, dataUrl }) => ({ id, dataUrl })),
     };
-    await saveSession(session);
+    await saveSession(JSON.parse(JSON.stringify(session)) as ImageGenerationSession);
     sessions.value = [session, ...sessions.value.filter((item) => item.id !== session.id)];
 }
 
@@ -380,7 +380,11 @@ async function handleGenerate() {
             referenceImages: referencePreviews.value.map(({ mimeType, base64 }) => ({ mimeType, base64 })),
         });
         stopProgress(true);
-        await persistCurrentSession();
+        try {
+            await persistCurrentSession();
+        } catch (historyError: any) {
+            error.value = `图片已生成，但本地历史保存失败：${historyError?.message || '请刷新后重试。'}`;
+        }
     } catch (requestError: any) {
         stopProgress(false);
         error.value = requestError?.message || '无法生成图片，请检查服务地址、API Key 与模型权限后重试。';
