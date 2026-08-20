@@ -92,21 +92,27 @@ export async function generateImage(params: GenerateImageParams): Promise<Genera
               response_format: 'b64_json',
           };
 
-    const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-            Authorization: `Bearer ${params.apiKey}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-    });
-    const payloadData = await response.json().catch(() => ({}));
-    if (!response.ok) {
-        const detail = payloadData?.error?.message || payloadData?.message || `HTTP ${response.status}`;
-        throw new Error(`生成请求失败：${detail}`);
-    }
+    const requestOnce = async () => {
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${params.apiKey}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+        });
+        const payloadData = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            const detail = payloadData?.error?.message || payloadData?.message || `HTTP ${response.status}`;
+            throw new Error(`生成请求失败：${detail}`);
+        }
+        return isGemini ? readGeminiImages(payloadData) : readOpenAiImages(payloadData);
+    };
 
-    const images = isGemini ? readGeminiImages(payloadData) : readOpenAiImages(payloadData);
+    const responses = isGemini
+        ? await Promise.all(Array.from({ length: params.count }, requestOnce))
+        : [await requestOnce()];
+    const images = responses.flat();
     if (!images.length) {
         throw new Error('接口已返回，但未解析到图片。请检查模型权限或服务地址。');
     }
