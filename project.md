@@ -6,8 +6,8 @@ description: 面向公司员工的通用 AI 生图工具，支持文本生成、
 scene: tool-app
 theme: A
 owner: guanyalong
-status: DEV
-last_publish: null
+status: PUBLISHED
+last_publish: 2026-08-20
 git_project_path: DataAgent-AI/mmu-live-image-studio
 ---
 ## 概述
