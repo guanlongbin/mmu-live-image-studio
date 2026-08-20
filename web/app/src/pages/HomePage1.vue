@@ -99,6 +99,12 @@
                     </div>
                 </div>
 
+                <div v-if="selectedSourceImage" class="source-image-box">
+                    <div class="source-image-heading"><span>当前引用图</span><button type="button" class="text-button" @click="clearSelectedSource">取消引用</button></div>
+                    <img :src="selectedSourceImage.dataUrl" alt="下一轮引用图片" />
+                    <p>已带入上一轮图片。可继续修改提示词和参数后生成。</p>
+                </div>
+
                 <label class="field-label" for="references">参考图片</label>
                 <label class="upload-zone" for="references">
                     <span>选择图片</span>
@@ -143,11 +149,11 @@
                     <p>填写提示词，选择模型后即可生成图片；也可上传参考图来控制构图和风格。</p>
                 </div>
                 <div v-else class="image-grid" :class="`image-grid--${Math.min(generatedImages.length, 4)}`">
-                    <article v-for="(image, index) in generatedImages" :key="image.id" class="image-card">
-                        <img :src="image.dataUrl" :alt="`生成结果 ${index + 1}`" @click="previewImage = image.dataUrl" />
+                    <article v-for="(image, index) in generatedImages" :key="image.id" class="image-card" :class="{ 'image-card--selected': selectedSourceImage?.id === image.id }">
+                        <img :src="image.dataUrl" :alt="`生成结果 ${index + 1}`" @click="selectImageAsSource(image)" />
                         <footer>
-                            <span>结果 {{ index + 1 }}</span>
-                            <a :href="image.dataUrl" :download="`mmu-image-${index + 1}.png`">下载</a>
+                            <span>{{ selectedSourceImage?.id === image.id ? '当前引用图' : `结果 ${index + 1}` }}</span>
+                            <div class="image-actions"><button type="button" @click="selectImageAsSource(image)">引用继续</button><a :href="image.dataUrl" :download="`mmu-image-${index + 1}.png`">下载</a></div>
                         </footer>
                     </article>
                 </div>
@@ -183,6 +189,8 @@ const progressLabel = ref('准备请求');
 let progressTimer: ReturnType<typeof window.setInterval> | undefined;
 const error = ref('');
 const generatedImages = ref<GeneratedImage[]>([]);
+const sessionRounds = ref<NonNullable<ImageGenerationSession['rounds']>>([]);
+const selectedSourceImage = ref<GeneratedImage | null>();
 const sessions = ref<ImageGenerationSession[]>([]);
 const activeSessionId = ref(crypto.randomUUID());
 const historyLoading = ref(true);
@@ -280,23 +288,64 @@ function formatSessionTime(timestamp: number) {
     return new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(timestamp);
 }
 
-async function persistCurrentSession() {
-    if (!generatedImages.value.length) return;
+async function persistCurrentSession(roundImages: GeneratedImage[]) {
+    if (!roundImages.length) return;
     const now = Date.now();
     const existing = sessions.value.find((item) => item.id === activeSessionId.value);
+    const round = {
+        id: crypto.randomUUID(),
+        createdAt: now,
+        prompt: prompt.value,
+        model: model.value,
+        size: resolvedSize.value,
+        count: count.value,
+        sourceImageId: selectedSourceImage.value?.id,
+        images: roundImages.map(({ id, dataUrl }) => ({ id, dataUrl })),
+    };
+    sessionRounds.value = [...sessionRounds.value, round];
     const session: ImageGenerationSession = {
         id: activeSessionId.value,
-        title: sessionTitle(prompt.value),
+        title: existing?.title || sessionTitle(prompt.value),
         createdAt: existing?.createdAt || now,
         updatedAt: now,
         prompt: prompt.value,
         model: model.value,
         size: resolvedSize.value,
         count: count.value,
-        images: generatedImages.value.map(({ id, dataUrl }) => ({ id, dataUrl })),
+        images: sessionRounds.value.flatMap((item) => item.images),
+        rounds: sessionRounds.value,
     };
     await saveSession(JSON.parse(JSON.stringify(session)) as ImageGenerationSession);
     sessions.value = [session, ...sessions.value.filter((item) => item.id !== session.id)];
+}
+
+function selectImageAsSource(image: GeneratedImage) {
+    selectedSourceImage.value = { id: image.id, dataUrl: image.dataUrl };
+    const matchingRound = sessionRounds.value.find((round) => round.images.some((item) => item.id === image.id));
+    if (matchingRound) {
+        prompt.value = matchingRound.prompt;
+        model.value = matchingRound.model;
+        if (sizePresets.some((preset) => preset.value === matchingRound.size)) {
+            size.value = matchingRound.size;
+        } else {
+            const [width, height] = matchingRound.size.split('x').map(Number);
+            size.value = 'custom';
+            customWidth.value = width || 1024;
+            customHeight.value = height || 1024;
+        }
+        count.value = matchingRound.count;
+    }
+    previewImage.value = '';
+}
+
+function clearSelectedSource() {
+    selectedSourceImage.value = null;
+}
+
+function sourceImageToReference(image: GeneratedImage): ReferenceImageInput {
+    const [meta, base64] = image.dataUrl.split(',');
+    const mimeType = meta.match(/^data:([^;]+)/)?.[1] || 'image/png';
+    return { mimeType, base64: base64 || '' };
 }
 
 function loadSession(session: ImageGenerationSession) {
@@ -312,7 +361,12 @@ function loadSession(session: ImageGenerationSession) {
         customHeight.value = height || 1024;
     }
     count.value = session.count;
+    sessionRounds.value = session.rounds || [{
+        id: crypto.randomUUID(), createdAt: session.updatedAt, prompt: session.prompt, model: session.model,
+        size: session.size, count: session.count, images: session.images,
+    }];
     generatedImages.value = session.images;
+    selectedSourceImage.value = null;
     previewImage.value = '';
 }
 
@@ -320,6 +374,9 @@ function createNewSession() {
     activeSessionId.value = crypto.randomUUID();
     prompt.value = '';
     generatedImages.value = [];
+    sessionRounds.value = [];
+    selectedSourceImage.value = null;
+    referencePreviews.value = [];
     previewImage.value = '';
     error.value = '';
 }
@@ -368,7 +425,7 @@ async function handleGenerate() {
     generating.value = true;
     startProgress();
     try {
-        generatedImages.value = await generateImage({
+        const newImages = await generateImage({
             apiKey: apiKey.value,
             baseUrl: baseUrl.value,
             model: model.value,
@@ -377,11 +434,15 @@ async function handleGenerate() {
                 : prompt.value,
             size: resolvedSize.value,
             count: count.value,
-            referenceImages: referencePreviews.value.map(({ mimeType, base64 }) => ({ mimeType, base64 })),
+            referenceImages: [
+                ...(selectedSourceImage.value ? [sourceImageToReference(selectedSourceImage.value)] : []),
+                ...referencePreviews.value.map(({ mimeType, base64 }) => ({ mimeType, base64 })),
+            ],
         });
+        generatedImages.value = [...generatedImages.value, ...newImages];
         stopProgress(true);
         try {
-            await persistCurrentSession();
+            await persistCurrentSession(newImages);
         } catch (historyError: any) {
             error.value = `图片已生成，但本地历史保存失败：${historyError?.message || '请刷新后重试。'}`;
         }
@@ -407,8 +468,8 @@ h1, h2, p { margin-top: 0; } h1 { margin-bottom: 0; font-size: 24px; line-height
 .field-label { display: block; margin: 16px 0 6px; color: var(--text_secondary); font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
 .field-input { width: 100%; border: 1px solid var(--border_form); border-radius: 6px; padding: 9px 10px; background: var(--bg_component); color: var(--text_primary); font: inherit; font-size: 14px; outline: none; transition: border-color .15s, box-shadow .15s; }
 .field-input:focus { border-color: var(--border_brand); box-shadow: 0 0 0 2px var(--bg_brand_tag); }.key-storage-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 6px; color: var(--text_tertiary); font-size: 11px; }.field-input:disabled { cursor: not-allowed; opacity: .55; }.prompt-input { resize: vertical; min-height: 130px; }.field-hint { margin: 6px 0 0; color: var(--text_tertiary); font-size: 12px; }.url-presets { display: flex; gap: 10px; justify-content: flex-end; margin-bottom: -22px; }.text-button { border: 0; padding: 0; background: none; color: var(--text_brand); font: inherit; font-size: 12px; cursor: pointer; }.text-button:hover { text-decoration: underline; }.text-button:focus-visible, .generate-button:focus-visible, .close-button:focus-visible, .reference-item button:focus-visible { outline: 2px solid var(--border_brand); outline-offset: 2px; }
-.parameter-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }.custom-size-row { display: grid; grid-template-columns: 1fr 16px 1fr; align-items: end; gap: 8px; }.custom-size-row .field-label { margin-top: 12px; }.size-divider { padding-bottom: 10px; color: var(--text_tertiary); text-align: center; }.progress-box { margin-top: 16px; padding: 10px; border: 1px solid var(--border_divider); border-radius: 6px; background: var(--bg_brand_contain); }.progress-meta { display: flex; justify-content: space-between; gap: 10px; color: var(--text_secondary); font-size: 12px; }.progress-meta strong { color: var(--text_brand); }.progress-track { height: 6px; margin-top: 8px; overflow: hidden; border-radius: 6px; background: var(--bg_tag); }.progress-track span { display: block; height: 100%; border-radius: inherit; background: var(--text_brand); transition: width .45s ease; }.progress-box p { margin: 7px 0 0; color: var(--text_tertiary); font-size: 11px; line-height: 1.45; }.upload-zone { display: flex; min-height: 90px; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 1px dashed var(--border_form); border-radius: 6px; color: var(--text_brand); cursor: pointer; font-size: 13px; }.upload-zone:hover { border-color: var(--border_brand); background: var(--bg_brand_contain); }.upload-zone small { color: var(--text_tertiary); }.upload-zone input { display: none; }.reference-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }.reference-item { position: relative; width: 64px; height: 64px; margin: 0; overflow: hidden; border: 1px solid var(--border_divider); border-radius: 6px; }.reference-item img { width: 100%; height: 100%; object-fit: cover; }.reference-item button { position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; border: 0; border-radius: 50%; background: var(--bg_component); color: var(--text_primary); cursor: pointer; }.error-message { margin: 14px 0 0; color: var(--text_negative); font-size: 12px; }.generate-button { width: 100%; min-height: 40px; margin-top: 18px; border: 0; border-radius: 6px; background: var(--text_brand); color: #fff; cursor: pointer; font-size: 14px; font-weight: 700; transition: opacity .15s, transform .15s; }.generate-button:hover { opacity: .9; }.generate-button:active { transform: scale(.98); }.generate-button:disabled { cursor: not-allowed; opacity: .45; }.spinner, .result-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; }.spinner { margin-right: 7px; }
-.result-panel { display: flex; min-height: 0; flex-direction: column; padding: 18px; overflow: hidden; }.result-header { display: flex; flex: 0 0 auto; align-items: flex-start; justify-content: space-between; padding-bottom: 12px; border-bottom: 1px solid var(--border_divider); }.result-header p { margin-bottom: 0; }.result-state { display: flex; min-height: 0; flex: 1; flex-direction: column; align-items: center; justify-content: center; text-align: center; }.result-state strong { font-size: 15px; }.result-state p { max-width: 360px; margin: 8px 0 0; }.result-spinner { width: 22px; height: 22px; margin-bottom: 12px; color: var(--text_brand); }.image-grid { display: grid; min-height: 0; flex: 1; gap: 12px; padding-top: 14px; overflow: auto; }.image-grid--1 { grid-template-columns: minmax(0, 1fr); justify-items: center; }.image-grid--1 .image-card { width: min(100%, calc(100dvh - 150px)); }.image-grid--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }.image-grid--3, .image-grid--4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }.image-card { overflow: hidden; border: 1px solid var(--border_divider); border-radius: 6px; background: var(--bg_layout); }.image-card img { display: block; width: 100%; max-height: calc(100dvh - 190px); aspect-ratio: auto; object-fit: contain; cursor: zoom-in; background: var(--bg_contain); }.image-card footer { display: flex; justify-content: space-between; padding: 10px; color: var(--text_secondary); font-size: 12px; }.image-card a { color: var(--text_brand); text-decoration: none; }.image-card a:hover { text-decoration: underline; }.preview-overlay { position: fixed; z-index: 400; inset: 0; display: flex; align-items: center; justify-content: center; padding: 36px; background: rgba(0, 0, 0, .75); }.preview-overlay img { max-width: 100%; max-height: 100%; object-fit: contain; }.close-button { position: fixed; top: 16px; right: 18px; width: 38px; height: 38px; border: 0; border-radius: 6px; background: var(--bg_component); color: var(--text_primary); cursor: pointer; font-size: 24px; }
+.source-image-box { margin: 16px 0 2px; padding: 10px; border: 1px solid var(--border_brand); border-radius: 6px; background: var(--bg_brand_contain); }.source-image-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--text_brand); font-size: 12px; font-weight: 700; }.source-image-box img { display: block; width: 100%; max-height: 160px; margin-top: 8px; border-radius: 4px; object-fit: contain; background: var(--bg_component); }.source-image-box p { margin: 7px 0 0; color: var(--text_secondary); font-size: 11px; line-height: 1.5; }.parameter-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }.custom-size-row { display: grid; grid-template-columns: 1fr 16px 1fr; align-items: end; gap: 8px; }.custom-size-row .field-label { margin-top: 12px; }.size-divider { padding-bottom: 10px; color: var(--text_tertiary); text-align: center; }.progress-box { margin-top: 16px; padding: 10px; border: 1px solid var(--border_divider); border-radius: 6px; background: var(--bg_brand_contain); }.progress-meta { display: flex; justify-content: space-between; gap: 10px; color: var(--text_secondary); font-size: 12px; }.progress-meta strong { color: var(--text_brand); }.progress-track { height: 6px; margin-top: 8px; overflow: hidden; border-radius: 6px; background: var(--bg_tag); }.progress-track span { display: block; height: 100%; border-radius: inherit; background: var(--text_brand); transition: width .45s ease; }.progress-box p { margin: 7px 0 0; color: var(--text_tertiary); font-size: 11px; line-height: 1.45; }.upload-zone { display: flex; min-height: 90px; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 1px dashed var(--border_form); border-radius: 6px; color: var(--text_brand); cursor: pointer; font-size: 13px; }.upload-zone:hover { border-color: var(--border_brand); background: var(--bg_brand_contain); }.upload-zone small { color: var(--text_tertiary); }.upload-zone input { display: none; }.reference-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }.reference-item { position: relative; width: 64px; height: 64px; margin: 0; overflow: hidden; border: 1px solid var(--border_divider); border-radius: 6px; }.reference-item img { width: 100%; height: 100%; object-fit: cover; }.reference-item button { position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; border: 0; border-radius: 50%; background: var(--bg_component); color: var(--text_primary); cursor: pointer; }.error-message { margin: 14px 0 0; color: var(--text_negative); font-size: 12px; }.generate-button { width: 100%; min-height: 40px; margin-top: 18px; border: 0; border-radius: 6px; background: var(--text_brand); color: #fff; cursor: pointer; font-size: 14px; font-weight: 700; transition: opacity .15s, transform .15s; }.generate-button:hover { opacity: .9; }.generate-button:active { transform: scale(.98); }.generate-button:disabled { cursor: not-allowed; opacity: .45; }.spinner, .result-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; }.spinner { margin-right: 7px; }
+.result-panel { display: flex; min-height: 0; flex-direction: column; padding: 18px; overflow: hidden; }.result-header { display: flex; flex: 0 0 auto; align-items: flex-start; justify-content: space-between; padding-bottom: 12px; border-bottom: 1px solid var(--border_divider); }.result-header p { margin-bottom: 0; }.result-state { display: flex; min-height: 0; flex: 1; flex-direction: column; align-items: center; justify-content: center; text-align: center; }.result-state strong { font-size: 15px; }.result-state p { max-width: 360px; margin: 8px 0 0; }.result-spinner { width: 22px; height: 22px; margin-bottom: 12px; color: var(--text_brand); }.image-grid { display: grid; min-height: 0; flex: 1; gap: 12px; padding-top: 14px; overflow: auto; }.image-grid--1 { grid-template-columns: minmax(0, 1fr); justify-items: center; }.image-grid--1 .image-card { width: min(100%, calc(100dvh - 150px)); }.image-grid--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }.image-grid--3, .image-grid--4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }.image-card { overflow: hidden; border: 1px solid var(--border_divider); border-radius: 6px; background: var(--bg_layout); }.image-card img { display: block; width: 100%; max-height: calc(100dvh - 190px); aspect-ratio: auto; object-fit: contain; cursor: zoom-in; background: var(--bg_contain); }.image-card--selected { border-color: var(--border_brand); box-shadow: 0 0 0 2px var(--bg_brand_tag); }.image-card footer { display: flex; justify-content: space-between; padding: 10px; color: var(--text_secondary); font-size: 12px; }.image-actions { display: flex; gap: 10px; align-items: center; }.image-actions button { border: 0; padding: 0; background: none; color: var(--text_brand); cursor: pointer; font: inherit; font-size: 12px; }.image-actions button:hover { text-decoration: underline; }.image-card a { color: var(--text_brand); text-decoration: none; }.image-card a:hover { text-decoration: underline; }.preview-overlay { position: fixed; z-index: 400; inset: 0; display: flex; align-items: center; justify-content: center; padding: 36px; background: rgba(0, 0, 0, .75); }.preview-overlay img { max-width: 100%; max-height: 100%; object-fit: contain; }.close-button { position: fixed; top: 16px; right: 18px; width: 38px; height: 38px; border: 0; border-radius: 6px; background: var(--bg_component); color: var(--text_primary); cursor: pointer; font-size: 24px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (max-width: 1060px) { .studio-shell { overflow: auto; }.workspace { flex: none; grid-template-columns: minmax(190px, 240px) minmax(300px, 1fr); }.result-panel { grid-column: 1 / -1; min-height: 520px; }.history-panel, .config-panel { min-height: 620px; } }@media (max-width: 700px) { .studio-shell { padding: 14px; }.topbar { gap: 12px; }.security-note { display: none; }.workspace { display: flex; flex-direction: column; }.history-panel, .config-panel, .result-panel { min-height: auto; }.history-panel { max-height: 260px; }.config-panel { overflow: visible; }.result-panel { min-height: 460px; }.image-grid--1 .image-card { width: 100%; }.image-card img { max-height: none; } }@media (max-width: 560px) { .image-grid--2, .image-grid--3, .image-grid--4 { grid-template-columns: 1fr; } }
 </style>

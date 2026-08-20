@@ -1,5 +1,16 @@
 import type { GeneratedImage, ImageModelId } from './api';
 
+export interface ImageGenerationRound {
+    id: string;
+    createdAt: number;
+    prompt: string;
+    model: ImageModelId;
+    size: string;
+    count: number;
+    sourceImageId?: string;
+    images: GeneratedImage[];
+}
+
 export interface ImageGenerationSession {
     id: string;
     title: string;
@@ -10,6 +21,7 @@ export interface ImageGenerationSession {
     size: string;
     count: number;
     images: GeneratedImage[];
+    rounds?: ImageGenerationRound[];
 }
 
 const databaseName = 'mmu-live-image-studio';

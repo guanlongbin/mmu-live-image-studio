@@ -33,4 +33,5 @@ git_project_path: DataAgent-AI/mmu-live-image-studio
 - 已发布 V8：支持本机生成历史和图片保留。
 - 已发布 V9：本地历史图片保存已修复。
 - 已发布 V10：全宽三栏布局、分栏独立滚动和结果图片视口适配。
-- 正在修复 Gemini 生成请求的 imageConfig.aspectRatio 映射，保持其他功能不变。
+- 已发布 V11：Gemini 请求按尺寸传递 imageConfig.aspectRatio。
+- 已实现多轮图片引用创作：同一会话保存多轮 Prompt、参数和图片；选中结果后可作为 Gemini 下一轮引用图继续修改生成。
