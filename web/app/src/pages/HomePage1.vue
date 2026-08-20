@@ -31,6 +31,10 @@
                     autocomplete="off"
                     placeholder="输入 Coding Plan API Key"
                 />
+                <div class="key-storage-actions">
+                    <span>{{ apiKey ? '此设备已自动保存 API Key' : '输入后会自动保存到此设备' }}</span>
+                    <button v-if="apiKey" type="button" class="text-button" @click="clearSavedApiKey">清除已保存 Key</button>
+                </div>
 
                 <label class="field-label" for="model">图片模型</label>
                 <select id="model" v-model="model" class="field-input">
@@ -140,11 +144,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { generateImage, type GeneratedImage, type ImageModelId, type ReferenceImageInput } from '@/services/api';
 
 const officeUrl = 'https://tokenverse.corp.kuaishou.com/v1beta';
 const idcUrl = 'http://tokenverse.internal/v1beta';
+const apiKeyStorageKey = 'mmu-live-image-studio.api-key';
 const baseUrl = ref(officeUrl);
 const apiKey = ref('');
 const prompt = ref('');
@@ -194,6 +199,17 @@ const canGenerate = computed(() => Boolean(
 watch(isGemini, (gemini) => {
     baseUrl.value = gemini ? officeUrl : 'https://tokenverse.corp.kuaishou.com/v1';
 });
+watch(apiKey, (value) => {
+    if (value.trim()) window.localStorage.setItem(apiKeyStorageKey, value);
+    else window.localStorage.removeItem(apiKeyStorageKey);
+});
+onMounted(() => {
+    apiKey.value = window.localStorage.getItem(apiKeyStorageKey) || '';
+});
+function clearSavedApiKey() {
+    window.localStorage.removeItem(apiKeyStorageKey);
+    apiKey.value = '';
+}
 const resultDescription = computed(() => generatedImages.value.length ? `已生成 ${generatedImages.value.length} 张图片。` : '生成完成后，图片会显示在这里。');
 
 function fileToReference(file: File) {
@@ -289,7 +305,7 @@ h1, h2, p { margin-top: 0; } h1 { margin-bottom: 0; font-size: 24px; line-height
 .config-panel { padding: 20px; } .section-heading { margin-bottom: 18px; }.section-heading p { margin-bottom: 0; }
 .field-label { display: block; margin: 16px 0 6px; color: var(--text_secondary); font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
 .field-input { width: 100%; border: 1px solid var(--border_form); border-radius: 6px; padding: 9px 10px; background: var(--bg_component); color: var(--text_primary); font: inherit; font-size: 14px; outline: none; transition: border-color .15s, box-shadow .15s; }
-.field-input:focus { border-color: var(--border_brand); box-shadow: 0 0 0 2px var(--bg_brand_tag); }.field-input:disabled { cursor: not-allowed; opacity: .55; }.prompt-input { resize: vertical; min-height: 130px; }.field-hint { margin: 6px 0 0; color: var(--text_tertiary); font-size: 12px; }.url-presets { display: flex; gap: 10px; justify-content: flex-end; margin-bottom: -22px; }.text-button { border: 0; padding: 0; background: none; color: var(--text_brand); font: inherit; font-size: 12px; cursor: pointer; }.text-button:hover { text-decoration: underline; }.text-button:focus-visible, .generate-button:focus-visible, .close-button:focus-visible, .reference-item button:focus-visible { outline: 2px solid var(--border_brand); outline-offset: 2px; }
+.field-input:focus { border-color: var(--border_brand); box-shadow: 0 0 0 2px var(--bg_brand_tag); }.key-storage-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 6px; color: var(--text_tertiary); font-size: 11px; }.field-input:disabled { cursor: not-allowed; opacity: .55; }.prompt-input { resize: vertical; min-height: 130px; }.field-hint { margin: 6px 0 0; color: var(--text_tertiary); font-size: 12px; }.url-presets { display: flex; gap: 10px; justify-content: flex-end; margin-bottom: -22px; }.text-button { border: 0; padding: 0; background: none; color: var(--text_brand); font: inherit; font-size: 12px; cursor: pointer; }.text-button:hover { text-decoration: underline; }.text-button:focus-visible, .generate-button:focus-visible, .close-button:focus-visible, .reference-item button:focus-visible { outline: 2px solid var(--border_brand); outline-offset: 2px; }
 .parameter-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }.custom-size-row { display: grid; grid-template-columns: 1fr 16px 1fr; align-items: end; gap: 8px; }.custom-size-row .field-label { margin-top: 12px; }.size-divider { padding-bottom: 10px; color: var(--text_tertiary); text-align: center; }.progress-box { margin-top: 16px; padding: 10px; border: 1px solid var(--border_divider); border-radius: 6px; background: var(--bg_brand_contain); }.progress-meta { display: flex; justify-content: space-between; gap: 10px; color: var(--text_secondary); font-size: 12px; }.progress-meta strong { color: var(--text_brand); }.progress-track { height: 6px; margin-top: 8px; overflow: hidden; border-radius: 6px; background: var(--bg_tag); }.progress-track span { display: block; height: 100%; border-radius: inherit; background: var(--text_brand); transition: width .45s ease; }.progress-box p { margin: 7px 0 0; color: var(--text_tertiary); font-size: 11px; line-height: 1.45; }.upload-zone { display: flex; min-height: 90px; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 1px dashed var(--border_form); border-radius: 6px; color: var(--text_brand); cursor: pointer; font-size: 13px; }.upload-zone:hover { border-color: var(--border_brand); background: var(--bg_brand_contain); }.upload-zone small { color: var(--text_tertiary); }.upload-zone input { display: none; }.reference-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }.reference-item { position: relative; width: 64px; height: 64px; margin: 0; overflow: hidden; border: 1px solid var(--border_divider); border-radius: 6px; }.reference-item img { width: 100%; height: 100%; object-fit: cover; }.reference-item button { position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; border: 0; border-radius: 50%; background: var(--bg_component); color: var(--text_primary); cursor: pointer; }.error-message { margin: 14px 0 0; color: var(--text_negative); font-size: 12px; }.generate-button { width: 100%; min-height: 40px; margin-top: 18px; border: 0; border-radius: 6px; background: var(--text_brand); color: #fff; cursor: pointer; font-size: 14px; font-weight: 700; transition: opacity .15s, transform .15s; }.generate-button:hover { opacity: .9; }.generate-button:active { transform: scale(.98); }.generate-button:disabled { cursor: not-allowed; opacity: .45; }.spinner, .result-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; }.spinner { margin-right: 7px; }
 .result-panel { min-height: 680px; padding: 20px; }.result-header { display: flex; align-items: flex-start; justify-content: space-between; padding-bottom: 16px; border-bottom: 1px solid var(--border_divider); }.result-header p { margin-bottom: 0; }.result-state { display: flex; min-height: 560px; flex-direction: column; align-items: center; justify-content: center; text-align: center; }.result-state strong { font-size: 15px; }.result-state p { max-width: 360px; margin: 8px 0 0; }.result-spinner { width: 22px; height: 22px; margin-bottom: 12px; color: var(--text_brand); }.image-grid { display: grid; gap: 14px; padding-top: 18px; }.image-grid--1 { grid-template-columns: minmax(0, 1fr); max-width: 760px; margin: 0 auto; }.image-grid--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }.image-grid--3, .image-grid--4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }.image-card { overflow: hidden; border: 1px solid var(--border_divider); border-radius: 6px; background: var(--bg_layout); }.image-card img { display: block; width: 100%; aspect-ratio: 1 / 1; object-fit: cover; cursor: zoom-in; }.image-card footer { display: flex; justify-content: space-between; padding: 10px; color: var(--text_secondary); font-size: 12px; }.image-card a { color: var(--text_brand); text-decoration: none; }.image-card a:hover { text-decoration: underline; }.preview-overlay { position: fixed; z-index: 400; inset: 0; display: flex; align-items: center; justify-content: center; padding: 36px; background: rgba(0, 0, 0, .75); }.preview-overlay img { max-width: 100%; max-height: 100%; object-fit: contain; }.close-button { position: fixed; top: 16px; right: 18px; width: 38px; height: 38px; border: 0; border-radius: 6px; background: var(--bg_component); color: var(--text_primary); cursor: pointer; font-size: 24px; }
 @keyframes spin { to { transform: rotate(360deg); } }
