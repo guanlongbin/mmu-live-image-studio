@@ -31,4 +31,5 @@ git_project_path: DataAgent-AI/mmu-live-image-studio
 ## 当前状态
 - 已发布 V7：支持 API Key 自动回填和清除。
 - 已发布 V8：支持本机生成历史和图片保留。
-- 正在修复 IndexedDB 对 Vue 响应式对象的克隆兼容问题。
+- 已发布 V9：本地历史图片保存已修复。
+- 正在优化全屏三栏布局：扩大工作区、分栏独立滚动，并限制结果图片在视口内展示。
