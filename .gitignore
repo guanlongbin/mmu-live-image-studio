@@ -1,0 +1,34 @@
+# 依赖 / 构建产物
+node_modules/
+dist/
+.cache/
+.rsbuild/
+*.tsbuildinfo
+
+# 日志 / 临时
+*.log
+.tmp/
+tmp/
+
+# 系统 / 编辑器
+.DS_Store
+.idea/
+.vscode/
+
+# 密钥 / 环境变量
+.env
+.env.local
+.cookie
+
+# LLM / agent 工具目录
+.codeflicker
+.claude/
+# .da-scratch/ — website-builder skill 的 plan-execute 三件套目录(plan.md/todo.md/progress.md
+# + 分析笔记 + 归档),per-branch 生成。含用户 prompt 原话、中间失败尝试、LLM 分析笔记等,
+# 绝对不能进远端仓库(V1 硬约束,scaffold-spec.md 明确要求 gitignored)。
+# 例外:保留 README.md 让目录结构在 template clone 时就存在,skill 直接写入子目录不用先 mkdir。
+.da-scratch/*
+!.da-scratch/README.md
+
+# 测试
+coverage/

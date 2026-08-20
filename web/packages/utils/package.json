@@ -1,0 +1,30 @@
+{
+  "name": "@ks-data/utils",
+  "version": "1.0.0",
+  "description": "AI 建站基建：统一请求封装、WebLogger/Radar 初始化、水印、埋点常量",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["src/", "CHANGELOG.md"],
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ks-radar/radar": "^1.3.2",
+    "@ks/ks-watermark": "^1.0.8",
+    "@ks/weblogger": "^3.10.48",
+    "@weblogger/auto-track-util": "^1.0.6",
+    "@weblogger/plugin-auto-track": "^1.0.7",
+    "@yoda/bridge": "2.0.17"
+  },
+  "publishConfig": {
+    "registry": "https://npm.corp.kuaishou.com"
+  },
+  "engines": {
+    "node": ">= 20.0.0"
+  }
+}

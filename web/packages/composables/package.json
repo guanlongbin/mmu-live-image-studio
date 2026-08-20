@@ -1,0 +1,30 @@
+{
+  "name": "@ks-data/composables",
+  "version": "1.0.0",
+  "description": "AI 建站基建：Vue 3 Composables（用户身份认证、基建版本检测与升级）",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["src/", "CHANGELOG.md"],
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@heroicons/vue": "^2.2.0",
+    "@ks-data/utils": "workspace:*",
+    "vue": "^3.5.13"
+  },
+  "peerDependencies": {
+    "vue": ">=3.0.0"
+  },
+  "publishConfig": {
+    "registry": "https://npm.corp.kuaishou.com"
+  },
+  "engines": {
+    "node": ">= 20.0.0"
+  }
+}

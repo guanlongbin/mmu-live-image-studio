@@ -1,0 +1,29 @@
+{
+  "name": "@ks-data/build-preset",
+  "version": "1.0.0",
+  "description": "AI 建站基建：rsbuild 配置工厂、沙箱 HMR 插件、端口探测、CDN 构建配置",
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js"
+  },
+  "files": ["index.js", "empty-asset-plugin.js", "proxy-options.js", "CHANGELOG.md"],
+  "scripts": {
+    "lint": "eslint .",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@rsbuild/core": "^1.4.9",
+    "@rsbuild/plugin-vue": "^1.1.0",
+    "https-proxy-agent": "^7.0.5"
+  },
+  "peerDependencies": {
+    "@rsbuild/core": ">=1.0.0"
+  },
+  "publishConfig": {
+    "registry": "https://npm.corp.kuaishou.com"
+  },
+  "engines": {
+    "node": ">= 20.0.0"
+  }
+}

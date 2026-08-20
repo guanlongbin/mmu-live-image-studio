@@ -1,0 +1,49 @@
+{
+    "name": "fe-template",
+    "version": "1.0.0",
+    "private": true,
+    "type": "module",
+    "description": "最小前端模板：rsbuild + Vue3，单页面演示「身份认证 -> 调用业务接口」",
+    "scripts": {
+        "dev": "node ./scripts/run.js dev",
+        "build": "node ./scripts/run.js build",
+        "preview": "rsbuild preview",
+        "lint": "eslint .",
+        "lint:fix": "eslint . --fix",
+        "format": "prettier --write .",
+        "typecheck": "tsc --noEmit"
+    },
+    "dependencies": {
+        "@headlessui/vue": "^1.7.23",
+        "@heroicons/vue": "^2.2.0",
+        "@ks-data/build-preset": "workspace:*",
+        "@ks-data/composables": "workspace:*",
+        "@ks-data/upload-tool": "workspace:*",
+        "@ks-data/utils": "workspace:*",
+        "@ks/weblogger": "^3.10.48",
+        "@tailwindcss/line-clamp": "^0.4.4",
+        "@yoda/bridge": "2.0.17",
+        "echarts": "^6.1.0",
+        "tailwindcss": "^3.4.19",
+        "vue": "^3.5.13",
+        "vue-router": "^4.5.1"
+    },
+    "devDependencies": {
+        "@eslint/js": "^9.0.0",
+        "@rsbuild/core": "^1.4.9",
+        "@rsbuild/plugin-vue": "^1.1.0",
+        "autoprefixer": "^10.5.0",
+        "eslint": "^9.0.0",
+        "eslint-config-prettier": "^9.1.0",
+        "eslint-plugin-vue": "^9.20.0",
+        "globals": "^15.0.0",
+        "postcss": "^8.5.15",
+        "prettier": "^3.0.0",
+        "typescript": "5.9.2",
+        "typescript-eslint": "^8.0.0",
+        "vue-eslint-parser": "^9.4.0"
+    },
+    "engines": {
+        "node": ">= 20.0.0"
+    }
+}

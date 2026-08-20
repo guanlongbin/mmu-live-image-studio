@@ -1,0 +1,48 @@
+{
+  "name": "@ks-data/website-data-agent",
+  "version": "0.0.5",
+  "description": "AI 建站基建：Data-Agent SDK 封装（composable + 渲染组件），含 SDK 全量 bundle",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./src/index.ts"
+    },
+    "./index.css": "./dist/index.css",
+    "./dist/index.css": "./dist/index.css"
+  },
+  "files": [
+    "dist/",
+    "src/",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "rsbuild build",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@yoda/bridge": "*",
+    "vue": ">=3.3.0"
+  },
+  "devDependencies": {
+    "@ks-data/data-agent-sdk": "1.0.2-beta.6",
+    "@rsbuild/core": "^1.4.9",
+    "@rsbuild/plugin-vue": "^1.1.0",
+    "typescript": "5.9.2",
+    "vue": "^3.5.13"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@git.corp.kuaishou.com:ks-frontend/data/data-agent-template.git",
+    "directory": "web/packages/data-agent"
+  },
+  "publishConfig": {
+    "registry": "https://npm.corp.kuaishou.com"
+  },
+  "engines": {
+    "node": ">= 20.0.0"
+  }
+}

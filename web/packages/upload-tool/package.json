@@ -1,0 +1,33 @@
+{
+  "name": "@ks-data/upload-tool",
+  "version": "1.0.0",
+  "description": "AI 建站基建：KCDN 静态资源上传工具（含自动重试）",
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js"
+  },
+  "bin": {
+    "ks-upload-cdn": "./bin/upload-cdn.js"
+  },
+  "files": ["index.js", "bin/", "CHANGELOG.md"],
+  "scripts": {
+    "lint": "eslint .",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "@kcdn/multi-upload": "^1.0.65",
+    "@ks/weblogger": "^3.10.48"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "eslint": "^9.0.0",
+    "globals": "^15.0.0"
+  },
+  "publishConfig": {
+    "registry": "https://npm.corp.kuaishou.com"
+  },
+  "engines": {
+    "node": ">= 20.0.0"
+  }
+}

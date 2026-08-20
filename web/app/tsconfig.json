@@ -1,0 +1,25 @@
+{
+    "compilerOptions": {
+        "target": "ESNext",
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "strict": true,
+        "jsx": "preserve",
+        "resolveJsonModule": true,
+        "isolatedModules": true,
+        "esModuleInterop": true,
+        "allowSyntheticDefaultImports": true,
+        "lib": ["ESNext", "DOM", "DOM.Iterable"],
+        "skipLibCheck": true,
+        "noEmit": true,
+        "baseUrl": ".",
+        "paths": {
+            "@/*": ["src/*"],
+            "@ks-data/utils": ["../packages/utils/src/index.ts"],
+            "@ks-data/composables": ["../packages/composables/src/index.ts"],
+            "@ks-data/build-preset": ["../packages/build-preset/index.js"],
+            "@ks-data/upload-tool": ["../packages/upload-tool/index.js"]
+        }
+    },
+    "include": ["src/**/*", "*.d.ts", "../packages/composables/src/**/*", "../packages/utils/src/**/*"]
+}

@@ -1,0 +1,67 @@
+/* 语义化颜色 token（亮色默认值）
+ * 通过 [theme='dark'] 属性选择器切换暗色模式
+ * 使用方式：document.documentElement.setAttribute('theme', 'dark')
+ */
+:root {
+    /* bg */
+    --bg_brand_contain: rgba(37, 99, 244, 0.059);
+    --bg_brand_tag: rgba(37, 99, 244, 0.1);
+    --bg_component: #ffffff;
+    --bg_contain: #f8fafc;
+    --bg_floating: #ffffff;
+    --bg_hover: #f6f7f9;
+    --bg_layout: #ffffff;
+    --bg_mask: rgba(0, 0, 0, 0.2);
+    --bg_positive: #00b323;
+    --bg_positive_disable: rgba(15, 184, 49, 0.5);
+    --bg_tag: #f0f2f4;
+    --bg_warning_notice: rgba(237, 160, 18, 0.1);
+    --bg_warning_tag: rgba(237, 160, 18, 0.18);
+    /* border */
+    --border_brand: #2563f4;
+    --border_brand_hover: #5c8fff;
+    --border_divider: #f0f2f4;
+    --border_form: #dfe0e2;
+    /* text */
+    --text_brand: #2563f4;
+    --text_negative: #e92a1b;
+    --text_positive: #00b323;
+    --text_primary: #131416;
+    --text_secondary: #5f6063;
+    --text_tertiary: #8e8e90;
+    --text_warning: #d08800;
+}
+
+:root[theme='dark'] {
+    /* bg */
+    --bg_brand_contain: rgba(74, 131, 246, 0.1);
+    --bg_brand_tag: rgba(74, 131, 246, 0.2);
+    --bg_component: #2a2d32;
+    --bg_contain: rgba(236, 242, 253, 0.039);
+    --bg_floating: #202327;
+    --bg_hover: rgba(236, 242, 253, 0.078);
+    --bg_layout: #0e0f11;
+    --bg_mask: rgba(0, 0, 0, 0.2);
+    --bg_positive: #27c241;
+    --bg_positive_disable: rgba(39, 194, 65, 0.5);
+    --bg_tag: rgba(236, 242, 253, 0.12);
+    --bg_warning_notice: rgba(255, 187, 38, 0.1);
+    --bg_warning_tag: rgba(255, 187, 38, 0.2);
+    /* border */
+    --border_brand: #4a83f6;
+    --border_brand_hover: #3971f4;
+    --border_divider: rgba(236, 242, 253, 0.12);
+    --border_form: rgba(236, 242, 253, 0.2);
+    /* text */
+    --text_brand: #4a83f6;
+    --text_negative: #ed5140;
+    --text_positive: #27c241;
+    --text_primary: rgba(236, 242, 253, 0.95);
+    --text_secondary: rgba(236, 242, 253, 0.75);
+    --text_tertiary: rgba(236, 242, 253, 0.55);
+    --text_warning: #ffbb26;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

@@ -1,0 +1,8 @@
+packages:
+  - 'packages/*'
+  - '!packages/data-agent'
+  - 'app'
+allowBuilds:
+  core-js: set this to true or false
+  core-js-pure: set this to true or false
+  esbuild: set this to true or false
