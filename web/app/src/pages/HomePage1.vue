@@ -5,14 +5,32 @@
                 <p class="eyebrow">MMU / IMAGE TOOL</p>
                 <h1>MMU Live Image Studio</h1>
             </div>
-            <span class="security-note">会话级密钥 · 不保存</span>
+            <span class="security-note">本机浏览器存储 · 不上传</span>
         </header>
 
         <section class="workspace" data-module-id="image-generator-workbench">
+            <aside class="history-panel">
+                <div class="history-header">
+                    <div><h2>生成历史</h2><p>仅保存在此浏览器</p></div>
+                    <button type="button" class="new-session-button" @click="createNewSession">+ 新建</button>
+                </div>
+                <div v-if="historyLoading" class="history-empty">正在读取本地记录…</div>
+                <div v-else-if="!sessions.length" class="history-empty">暂无历史记录<br /><small>生成的图片会默认保留在此设备。</small></div>
+                <div v-else class="session-list">
+                    <button v-for="session in sessions" :key="session.id" type="button" class="session-item" :class="{ 'session-item--active': session.id === activeSessionId }" @click="loadSession(session)">
+                        <span class="session-title">{{ session.title }}</span>
+                        <small>{{ formatSessionTime(session.updatedAt) }} · {{ session.images.length }} 张</small>
+                    </button>
+                </div>
+                <div v-if="sessions.length" class="history-footer">
+                    <button type="button" class="text-button" @click="deleteCurrentSession">删除当前</button>
+                    <button type="button" class="text-button text-button--danger" @click="clearAllSessions">清空全部</button>
+                </div>
+            </aside>
             <aside class="config-panel">
                 <div class="section-heading">
                     <h2>生成配置</h2>
-                    <p>服务地址和密钥仅用于本次浏览器会话。</p>
+                    <p>密钥、历史和图片仅保存在当前浏览器。</p>
                 </div>
 
                 <label class="field-label" for="base-url">服务地址</label>
@@ -146,6 +164,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { generateImage, type GeneratedImage, type ImageModelId, type ReferenceImageInput } from '@/services/api';
+import { clearSessions, deleteSession, listSessions, saveSession, type ImageGenerationSession } from '@/services/history';
 
 const officeUrl = 'https://tokenverse.corp.kuaishou.com/v1beta';
 const idcUrl = 'http://tokenverse.internal/v1beta';
@@ -164,6 +183,9 @@ const progressLabel = ref('准备请求');
 let progressTimer: ReturnType<typeof window.setInterval> | undefined;
 const error = ref('');
 const generatedImages = ref<GeneratedImage[]>([]);
+const sessions = ref<ImageGenerationSession[]>([]);
+const activeSessionId = ref(crypto.randomUUID());
+const historyLoading = ref(true);
 const previewImage = ref('');
 const referencePreviews = ref<Array<ReferenceImageInput & { id: string; dataUrl: string; name: string }>>([]);
 
@@ -203,8 +225,13 @@ watch(apiKey, (value) => {
     if (value.trim()) window.localStorage.setItem(apiKeyStorageKey, value);
     else window.localStorage.removeItem(apiKeyStorageKey);
 });
-onMounted(() => {
+onMounted(async () => {
     apiKey.value = window.localStorage.getItem(apiKeyStorageKey) || '';
+    try {
+        sessions.value = await listSessions();
+    } finally {
+        historyLoading.value = false;
+    }
 });
 function clearSavedApiKey() {
     window.localStorage.removeItem(apiKeyStorageKey);
@@ -242,6 +269,74 @@ async function onFilesChange(event: Event) {
 
 function removeReference(id: string) {
     referencePreviews.value = referencePreviews.value.filter((item) => item.id !== id);
+}
+
+function sessionTitle(value: string) {
+    const text = value.trim().replace(/\s+/g, ' ');
+    return text.length > 22 ? `${text.slice(0, 22)}…` : text || '未命名生成';
+}
+
+function formatSessionTime(timestamp: number) {
+    return new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(timestamp);
+}
+
+async function persistCurrentSession() {
+    if (!generatedImages.value.length) return;
+    const now = Date.now();
+    const existing = sessions.value.find((item) => item.id === activeSessionId.value);
+    const session: ImageGenerationSession = {
+        id: activeSessionId.value,
+        title: sessionTitle(prompt.value),
+        createdAt: existing?.createdAt || now,
+        updatedAt: now,
+        prompt: prompt.value,
+        model: model.value,
+        size: resolvedSize.value,
+        count: count.value,
+        images: generatedImages.value,
+    };
+    await saveSession(session);
+    sessions.value = [session, ...sessions.value.filter((item) => item.id !== session.id)];
+}
+
+function loadSession(session: ImageGenerationSession) {
+    activeSessionId.value = session.id;
+    prompt.value = session.prompt;
+    model.value = session.model;
+    if (sizePresets.some((preset) => preset.value === session.size)) {
+        size.value = session.size;
+    } else {
+        const [width, height] = session.size.split('x').map(Number);
+        size.value = 'custom';
+        customWidth.value = width || 1024;
+        customHeight.value = height || 1024;
+    }
+    count.value = session.count;
+    generatedImages.value = session.images;
+    previewImage.value = '';
+}
+
+function createNewSession() {
+    activeSessionId.value = crypto.randomUUID();
+    prompt.value = '';
+    generatedImages.value = [];
+    previewImage.value = '';
+    error.value = '';
+}
+
+async function deleteCurrentSession() {
+    const current = sessions.value.find((item) => item.id === activeSessionId.value);
+    if (!current || !window.confirm(`删除“${current.title}”及其中的本地图片吗？`)) return;
+    await deleteSession(current.id);
+    sessions.value = sessions.value.filter((item) => item.id !== current.id);
+    createNewSession();
+}
+
+async function clearAllSessions() {
+    if (!window.confirm('清空此浏览器中所有生成历史和图片吗？此操作无法恢复。')) return;
+    await clearSessions();
+    sessions.value = [];
+    createNewSession();
 }
 
 function clearResults() {
@@ -285,6 +380,7 @@ async function handleGenerate() {
             referenceImages: referencePreviews.value.map(({ mimeType, base64 }) => ({ mimeType, base64 })),
         });
         stopProgress(true);
+        await persistCurrentSession();
     } catch (requestError: any) {
         stopProgress(false);
         error.value = requestError?.message || '无法生成图片，请检查服务地址、API Key 与模型权限后重试。';
@@ -300,8 +396,9 @@ async function handleGenerate() {
 .eyebrow { margin: 0 0 6px; color: var(--text_brand); font-size: 11px; font-weight: 700; letter-spacing: .12em; }
 h1, h2, p { margin-top: 0; } h1 { margin-bottom: 0; font-size: 24px; line-height: 1.25; letter-spacing: -.02em; } h2 { margin-bottom: 6px; font-size: 16px; } p { color: var(--text_secondary); font-size: 13px; line-height: 1.65; }
 .security-note { border: 1px solid var(--border_divider); border-radius: 999px; padding: 5px 10px; color: var(--text_secondary); font-size: 12px; background: var(--bg_component); }
-.workspace { display: grid; grid-template-columns: minmax(320px, 400px) minmax(0, 1fr); gap: 20px; max-width: 1440px; margin: 0 auto; }
-.config-panel, .result-panel { border: 1px solid var(--border_divider); border-radius: 6px; background: var(--bg_component); }
+.workspace { display: grid; grid-template-columns: minmax(190px, 240px) minmax(320px, 400px) minmax(0, 1fr); gap: 20px; max-width: 1440px; margin: 0 auto; }
+.history-panel, .config-panel, .result-panel { border: 1px solid var(--border_divider); border-radius: 6px; background: var(--bg_component); }
+.history-panel { display: flex; min-height: 680px; flex-direction: column; padding: 16px 12px; }.history-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; padding: 4px 4px 14px; border-bottom: 1px solid var(--border_divider); }.history-header h2 { margin: 0 0 4px; }.history-header p { margin: 0; color: var(--text_tertiary); font-size: 11px; }.new-session-button { border: 1px solid var(--border_brand); border-radius: 5px; padding: 5px 7px; background: var(--bg_brand_contain); color: var(--text_brand); cursor: pointer; font-size: 11px; font-weight: 700; }.new-session-button:hover { background: var(--text_brand); color: #fff; }.history-empty { padding: 34px 10px; color: var(--text_tertiary); font-size: 12px; line-height: 1.7; text-align: center; }.history-empty small { font-size: 11px; }.session-list { display: flex; flex: 1; flex-direction: column; gap: 5px; overflow-y: auto; padding: 12px 0; }.session-item { width: 100%; border: 1px solid transparent; border-radius: 5px; padding: 9px; background: transparent; color: var(--text_primary); cursor: pointer; text-align: left; }.session-item:hover, .session-item--active { border-color: var(--border_divider); background: var(--bg_brand_contain); }.session-title { display: block; overflow: hidden; font-size: 12px; font-weight: 700; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }.session-item small { display: block; margin-top: 4px; color: var(--text_tertiary); font-size: 10px; }.history-footer { display: flex; justify-content: space-between; gap: 8px; padding: 12px 4px 2px; border-top: 1px solid var(--border_divider); }.text-button--danger { color: var(--text_negative); }
 .config-panel { padding: 20px; } .section-heading { margin-bottom: 18px; }.section-heading p { margin-bottom: 0; }
 .field-label { display: block; margin: 16px 0 6px; color: var(--text_secondary); font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
 .field-input { width: 100%; border: 1px solid var(--border_form); border-radius: 6px; padding: 9px 10px; background: var(--bg_component); color: var(--text_primary); font: inherit; font-size: 14px; outline: none; transition: border-color .15s, box-shadow .15s; }
