@@ -39,3 +39,5 @@ git_project_path: DataAgent-AI/mmu-live-image-studio
 - V16–V17：Prompt 移至结果区顶部，并修复通用按钮宽度覆盖导致的输入框受挤压问题。
 - 自定义尺寸使用 256–4096 px、步进 64 px 的宽高滑块；API Key 下方以黄色提示强调仅存当前浏览器。
 - 结果图悬停 Prompt 使用图片内部底部覆盖层，避免被卡片 overflow 裁剪。
+- 已实现请求取消、多图容错与失败重试；Prompt 模板/快捷键；轮次分组、选图对比、收藏、批量下载；可搜索、导入导出的本机历史；以及 localStorage 偏好设置与完成通知。
+- GPT-Image-2 当前严格使用 `/v1/images/generations`；引用图编辑等待用户确认 TokenVerse `/v1/images/edits` 协议后接入。

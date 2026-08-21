@@ -22,6 +22,8 @@ export interface ImageGenerationSession {
     count: number;
     images: GeneratedImage[];
     rounds?: ImageGenerationRound[];
+    favorite?: boolean;
+    favoriteImageIds?: string[];
 }
 
 const databaseName = 'mmu-live-image-studio';

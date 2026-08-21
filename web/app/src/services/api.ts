@@ -8,6 +8,12 @@ export interface ReferenceImageInput {
     base64: string;
 }
 
+export interface GenerateImageProgress {
+    completed: number;
+    failed: number;
+    total: number;
+}
+
 export interface GenerateImageParams {
     apiKey: string;
     baseUrl: string;
@@ -16,11 +22,18 @@ export interface GenerateImageParams {
     size: string;
     count: number;
     referenceImages: ReferenceImageInput[];
+    signal?: AbortSignal;
+    onProgress?: (progress: GenerateImageProgress) => void;
 }
 
 export interface GeneratedImage {
     id: string;
     dataUrl: string;
+}
+
+export interface GenerateImageResult {
+    images: GeneratedImage[];
+    failed: number;
 }
 
 function normalizeBaseUrl(baseUrl: string) {
@@ -76,7 +89,7 @@ function readOpenAiImages(payload: any): GeneratedImage[] {
  * 图片接口需将用户运行时 API Key 直接带给用户指定的 TokenVerse 地址，
  * 因此不能使用站点通用 request 封装。此函数不写入任何浏览器持久化存储。
  */
-export async function generateImage(params: GenerateImageParams): Promise<GeneratedImage[]> {
+export async function generateImage(params: GenerateImageParams): Promise<GenerateImageResult> {
     const isGemini = params.model.startsWith('gemini-');
     const endpoint = resolveEndpoint(params.baseUrl, params.model);
 
@@ -111,6 +124,7 @@ export async function generateImage(params: GenerateImageParams): Promise<Genera
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify(payload),
+            signal: params.signal,
         });
         const payloadData = await response.json().catch(() => ({}));
         if (!response.ok) {
@@ -120,12 +134,29 @@ export async function generateImage(params: GenerateImageParams): Promise<Genera
         return isGemini ? readGeminiImages(payloadData) : readOpenAiImages(payloadData);
     };
 
-    const responses = isGemini
-        ? await Promise.all(Array.from({ length: params.count }, requestOnce))
-        : [await requestOnce()];
-    const images = responses.flat();
-    if (!images.length) {
-        throw new Error('接口已返回，但未解析到图片。请检查模型权限或服务地址。');
+    if (!isGemini) {
+        const images = await requestOnce();
+        params.onProgress?.({ completed: images.length, failed: 0, total: params.count });
+        if (!images.length) throw new Error('接口已返回，但未解析到图片。请检查模型权限或服务地址。');
+        return { images, failed: Math.max(0, params.count - images.length) };
     }
-    return images;
+
+    let completed = 0;
+    let failed = 0;
+    const trackedRequests = Array.from({ length: params.count }, async () => {
+        try {
+            const images = await requestOnce();
+            completed += images.length;
+            params.onProgress?.({ completed, failed, total: params.count });
+            return images;
+        } catch (error: any) {
+            if (error?.name === 'AbortError') throw error;
+            failed += 1;
+            params.onProgress?.({ completed, failed, total: params.count });
+            return [];
+        }
+    });
+    const images = (await Promise.all(trackedRequests)).flat();
+    if (!images.length) throw new Error('所有生成请求均失败，请检查服务地址、API Key 与模型权限。');
+    return { images, failed };
 }
