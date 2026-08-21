@@ -36,4 +36,6 @@ git_project_path: DataAgent-AI/mmu-live-image-studio
 - 已发布 V11：Gemini 请求按尺寸传递 imageConfig.aspectRatio。
 - 已实现多轮图片引用创作：同一会话保存多轮 Prompt、参数和图片；选中结果后可作为 Gemini 下一轮引用图继续修改生成。
 - V13–V15：结果图缩略展示，点击放大与引用继续分离；优化三栏宽度与字号；悬停结果图展示所属轮次 Prompt。
-- V16：Prompt 移至结果区顶部；后续修复通用按钮宽度样式覆盖导致的输入框受挤压问题。
+- V16–V17：Prompt 移至结果区顶部，并修复通用按钮宽度覆盖导致的输入框受挤压问题。
+- 自定义尺寸使用 256–4096 px、步进 64 px 的宽高滑块；API Key 下方以黄色提示强调仅存当前浏览器。
+- 结果图悬停 Prompt 使用图片内部底部覆盖层，避免被卡片 overflow 裁剪。
