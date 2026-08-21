@@ -2,6 +2,8 @@
 
 一个面向创作迭代的浏览器端 AI 生图工作台，统一适配 Gemini 图片生成、GPT-Image-2 图片编辑，以及 GPT-5.6 多模态图片分析。
 
+![MMU Live Image Studio 工作台截图](docs/assets/mmu-live-image-studio.png)
+
 > 本项目的 API Key 由用户在浏览器运行时输入，只保存在当前浏览器中，不写入源码、服务端数据库或日志。
 
 ## 功能概览
