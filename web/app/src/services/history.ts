@@ -8,6 +8,11 @@ export interface ImageGenerationRound {
     size: string;
     count: number;
     sourceImageId?: string;
+    sourceImageDataUrl?: string;
+    sourceRoundId?: string;
+    sourceLabel?: string;
+    sourceType?: 'generated' | 'upload';
+    extraReferenceCount?: number;
     images: GeneratedImage[];
 }
 
