@@ -6,6 +6,7 @@
                 <h1>MMU Live Image Studio</h1>
             </div>
             <div class="topbar-actions">
+                <RouterLink to="/cases" class="settings-button">案例灵感</RouterLink>
                 <button type="button" class="settings-button" @click="historyCollapsed = !historyCollapsed">{{ historyCollapsed ? '展开历史' : '收起历史' }}</button>
                 <button type="button" class="settings-button" @click="settingsOpen = true">偏好设置</button>
                 <span class="security-note">本机浏览器存储 · 不上传</span>
@@ -307,6 +308,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import { RouterLink } from 'vue-router';
 import { analyzeImageStream, generateImage, type GeneratedImage, type ImageModelId, type ReferenceImageInput, type VisionMessage, type VisionModelId } from '@/services/api';
 import { clearSessions, deleteSession, listSessions, saveSession, type ImageGenerationSession } from '@/services/history';
 
@@ -460,6 +462,14 @@ onMounted(async () => {
     }
     await nextTick();
     resizePromptTextarea();
+    const caseDraft = window.localStorage.getItem('mmu-live-image-studio.case-draft');
+    if (caseDraft) {
+        try {
+            const parsed = JSON.parse(caseDraft) as { prompt?: string };
+            if (parsed.prompt) prompt.value = parsed.prompt;
+        } catch { /* ignore invalid case draft */ }
+        window.localStorage.removeItem('mmu-live-image-studio.case-draft');
+    }
     const savedPreferences = window.localStorage.getItem(preferencesStorageKey);
     if (savedPreferences) {
         try {

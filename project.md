@@ -16,11 +16,13 @@ git_project_path: DataAgent-AI/mmu-live-image-studio
 ## 数据源
 - TokenVerse 图片生成 API：浏览器通过用户 API Key 调用。
 - 浏览器 IndexedDB：仅本机保存用户生成会话和图片，不上传服务端。
+- awesome-gpt-image-2 公开案例索引（MIT）：静态案例数据随前端构建；案例预览图片通过上游公开 GitHub 地址加载。
 
 ## 模块
 - 生图工作台:`web/app/src/pages/HomePage1.vue` · 配置、历史侧边栏、生成结果、预览和下载。
 - 协议适配:`web/app/src/services/api.ts` · Gemini 与 GPT-Image-2 请求、解析。
 - 本地历史:`web/app/src/services/history.ts` · IndexedDB 会话与图片持久化。
+- 案例灵感库:`web/app/src/pages/CaseLibraryPage.vue` · 公开案例浏览、搜索筛选、本地收藏、详情查看与 Prompt 一键带入。
 
 ## 硬约束
 - API Key 仅保存在用户当前浏览器 localStorage，不上传服务器、不写入数据库、日志或 Cookie；支持一键清除。
@@ -46,3 +48,4 @@ git_project_path: DataAgent-AI/mmu-live-image-studio
 - Prompt 初始高度为 78px，随内容自动扩展至 220px、超出后内部滚动；灵感模板保留内置模板，并支持当前浏览器本地新增、编辑和删除自定义模板。
 - 每张结果图与引用来源图提供 AI 分析：GPT-5.6 Terra/Sol/Luna 多模态 SSE 对话，图片附近锚点气泡可拖动、最小化和回到图片；最多5轮追问，记录仅存浏览器 localStorage。
 - 分析自动携带图片所属轮次原始 Prompt；快捷分析使用 `<analysis>`/`<edit_prompt>` 分离阅读结论和可执行修改 Prompt。分析正文不能直接用于生图；修改 Prompt 独立可编辑、复制、替换、重新提炼及引用当前图片继续。
+- 案例灵感库：接入 awesome-gpt-image-2 的 523 条 MIT 公开案例索引，支持全文搜索、分类/风格/场景筛选、本地收藏、查看完整 Prompt、复制和一键带入工作台；保留上游仓库、原案例和作者来源，案例图片不复制而通过上游公开 GitHub 地址加载。

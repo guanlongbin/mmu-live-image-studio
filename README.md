@@ -6,6 +6,15 @@
 
 > 本项目的 API Key 由用户在浏览器运行时输入，只保存在当前浏览器中，不写入源码、服务端数据库或日志。
 
+## 案例灵感库
+
+内置「案例灵感」页，基于 [freestylefly/awesome-gpt-image-2](https://github.com/freestylefly/awesome-gpt-image-2) 的 MIT 许可结构化案例索引，提供 523 个可搜索案例：
+
+- 按关键词、分类、风格、场景筛选，并支持浏览器本地收藏；
+- 查看大图、完整 Prompt、原案例和原始作者来源；
+- 一键将案例 Prompt 带回工作台继续编辑和生成；
+- 预览图片从上游公开 GitHub 仓库运行时加载，本站不复制其图片资源；完整许可说明见 [第三方声明](docs/third-party-notices.md)。
+
 ## 功能概览
 
 ### 图片生成与编辑

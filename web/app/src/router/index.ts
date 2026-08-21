@@ -24,6 +24,11 @@ const router = createRouter({
             name: 'charts',
             component: () => import('@/pages/ChartsPage.vue'),
         },
+        {
+            path: '/cases',
+            name: 'cases',
+            component: () => import('@/pages/CaseLibraryPage.vue'),
+        },
         // {
         //     path: '/agent-demo',
         //     name: 'agent-demo',
