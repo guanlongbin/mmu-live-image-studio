@@ -7,7 +7,7 @@ scene: tool-app
 theme: A
 owner: guanyalong
 status: PUBLISHED
-last_publish: 2026-08-20
+last_publish: 2026-08-21
 git_project_path: DataAgent-AI/mmu-live-image-studio
 ---
 ## 概述
@@ -35,3 +35,5 @@ git_project_path: DataAgent-AI/mmu-live-image-studio
 - 已发布 V10：全宽三栏布局、分栏独立滚动和结果图片视口适配。
 - 已发布 V11：Gemini 请求按尺寸传递 imageConfig.aspectRatio。
 - 已实现多轮图片引用创作：同一会话保存多轮 Prompt、参数和图片；选中结果后可作为 Gemini 下一轮引用图继续修改生成。
+- V13–V15：结果图缩略展示，点击放大与引用继续分离；优化三栏宽度与字号；悬停结果图展示所属轮次 Prompt。
+- V16：Prompt 移至结果区顶部；后续修复通用按钮宽度样式覆盖导致的输入框受挤压问题。
