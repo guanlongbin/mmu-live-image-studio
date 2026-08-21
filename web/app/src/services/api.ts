@@ -36,6 +36,18 @@ export interface GenerateImageResult {
     failed: number;
 }
 
+export type VisionModelId = 'gpt-5-6-terra' | 'gpt-5-6-sol' | 'gpt-5-6-luna';
+export interface VisionMessage { role: 'user' | 'assistant'; content: string }
+export interface AnalyzeImageParams {
+    apiKey: string;
+    baseUrl: string;
+    model: VisionModelId;
+    imageDataUrl: string;
+    messages: VisionMessage[];
+    signal?: AbortSignal;
+    onDelta: (text: string) => void;
+}
+
 function normalizeBaseUrl(baseUrl: string) {
     return baseUrl.trim().replace(/\/+$/, '');
 }
@@ -176,4 +188,48 @@ export async function generateImage(params: GenerateImageParams): Promise<Genera
     const images = (await Promise.all(trackedRequests)).flat();
     if (!images.length) throw new Error('所有生成请求均失败，请检查服务地址、API Key 与模型权限。');
     return { images, failed };
+}
+
+export async function analyzeImageStream(params: AnalyzeImageParams) {
+    const origin = normalizeBaseUrl(params.baseUrl).replace(/\/(v1|v1beta)$/, '');
+    const firstUserIndex = params.messages.findIndex((message) => message.role === 'user');
+    const messages = params.messages.map((message, index) => index === firstUserIndex
+        ? {
+              role: message.role,
+              content: [
+                  { type: 'text', text: message.content },
+                  { type: 'image_url', image_url: { url: params.imageDataUrl } },
+              ],
+          }
+        : message);
+    const response = await fetch(`${origin}/v1/chat/completions`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${params.apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: params.model, messages, stream: true }),
+        signal: params.signal,
+    });
+    if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload?.error?.message || payload?.message || `HTTP ${response.status}`);
+    }
+    if (!response.body) throw new Error('服务未返回可读取的流式响应。');
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+        for (const line of lines) {
+            const data = line.trim().replace(/^data:\s*/, '');
+            if (!data || data === '[DONE]') continue;
+            try {
+                const chunk = JSON.parse(data);
+                const delta = chunk?.choices?.[0]?.delta?.content;
+                if (typeof delta === 'string') params.onDelta(delta);
+            } catch { /* wait for the next complete SSE frame */ }
+        }
+    }
 }
