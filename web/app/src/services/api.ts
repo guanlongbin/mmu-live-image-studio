@@ -173,6 +173,7 @@ export async function generateImage(params: GenerateImageParams): Promise<Genera
 
     let completed = 0;
     let failed = 0;
+    const failures: string[] = [];
     const trackedRequests = Array.from({ length: params.count }, async () => {
         try {
             const images = await requestOnce();
@@ -182,12 +183,17 @@ export async function generateImage(params: GenerateImageParams): Promise<Genera
         } catch (error: any) {
             if (error?.name === 'AbortError') throw error;
             failed += 1;
+            const detail = error instanceof Error ? error.message : String(error);
+            if (detail && !failures.includes(detail)) failures.push(detail);
             params.onProgress?.({ completed, failed, total: params.count });
             return [];
         }
     });
     const images = (await Promise.all(trackedRequests)).flat();
-    if (!images.length) throw new Error('所有生成请求均失败，请检查服务地址、API Key 与模型权限。');
+    if (!images.length) {
+        const detail = failures[0] || '浏览器未获得可用响应。';
+        throw new Error(`所有生成请求均失败：${detail}`);
+    }
     return { images, failed };
 }
 
