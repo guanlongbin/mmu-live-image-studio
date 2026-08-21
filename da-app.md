@@ -10,7 +10,7 @@
   owner: guanyalong
   source: TokenVerse 图片生成 API
   files: web/app/src/services/api.ts
-  description: Gemini 原生与 OpenAI Images 协议的请求构建、响应图片 Base64 解析。
+  description: Gemini generateContent、OpenAI Images generations 与单参考图 edits 协议的请求构建、响应图片 Base64 解析。
 
 - id: local-generation-history
   owner: guanyalong

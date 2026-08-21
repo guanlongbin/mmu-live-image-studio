@@ -40,16 +40,24 @@ function normalizeBaseUrl(baseUrl: string) {
     return baseUrl.trim().replace(/\/+$/, '');
 }
 
-function resolveEndpoint(baseUrl: string, model: ImageModelId) {
+function resolveEndpoint(baseUrl: string, model: ImageModelId, editing = false) {
     const origin = normalizeBaseUrl(baseUrl).replace(/\/(v1|v1beta)$/, '');
     if (model.startsWith('gemini-')) {
         return `${origin}/v1beta/models/${model}:generateContent`;
     }
-    return `${origin}/v1/images/generations`;
+    return `${origin}/v1/images/${editing ? 'edits' : 'generations'}`;
 }
 
 function toDataUrl(base64: string, mimeType = 'image/png') {
     return `data:${mimeType};base64,${base64}`;
+}
+
+function referenceToFile(image: ReferenceImageInput, index: number) {
+    const binary = window.atob(image.base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let offset = 0; offset < binary.length; offset += 1) bytes[offset] = binary.charCodeAt(offset);
+    const extension = image.mimeType.split('/')[1]?.replace('jpeg', 'jpg') || 'png';
+    return new File([bytes], `reference-${index + 1}.${extension}`, { type: image.mimeType });
 }
 
 function resolveAspectRatio(size: string) {
@@ -91,7 +99,8 @@ function readOpenAiImages(payload: any): GeneratedImage[] {
  */
 export async function generateImage(params: GenerateImageParams): Promise<GenerateImageResult> {
     const isGemini = params.model.startsWith('gemini-');
-    const endpoint = resolveEndpoint(params.baseUrl, params.model);
+    const isOpenAiEdit = !isGemini && params.referenceImages.length > 0;
+    const endpoint = resolveEndpoint(params.baseUrl, params.model, isOpenAiEdit);
 
     const geminiParts = [
         { text: params.prompt },
@@ -117,13 +126,21 @@ export async function generateImage(params: GenerateImageParams): Promise<Genera
           };
 
     const requestOnce = async () => {
+        const formData = new FormData();
+        if (isOpenAiEdit) {
+            formData.append('model', params.model);
+            formData.append('prompt', params.prompt);
+            formData.append('n', String(params.count));
+            formData.append('size', params.size);
+            formData.append('response_format', 'b64_json');
+            formData.append('image', referenceToFile(params.referenceImages[0], 0));
+        }
         const response = await fetch(endpoint, {
             method: 'POST',
-            headers: {
-                Authorization: `Bearer ${params.apiKey}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(payload),
+            headers: isOpenAiEdit
+                ? { Authorization: `Bearer ${params.apiKey}` }
+                : { Authorization: `Bearer ${params.apiKey}`, 'Content-Type': 'application/json' },
+            body: isOpenAiEdit ? formData : JSON.stringify(payload),
             signal: params.signal,
         });
         const payloadData = await response.json().catch(() => ({}));

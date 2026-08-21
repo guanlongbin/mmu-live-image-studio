@@ -27,7 +27,7 @@
   - 支持停止生成、多图独立容错、失败重试、完成/失败数量反馈与浏览器完成通知
   - Prompt 支持字符数、复制、清空、快捷键生成与常用模板；结果按轮次分组并支持选择、对比、收藏、批量保留和批量下载
   - 历史支持搜索、重命名、收藏、JSON 导入导出和本地空间估算；偏好设置保存在 localStorage
-  - GPT-Image-2 在 edits 接口确认前仍使用 generations，引用图不传入且界面明确提示
+  - GPT-Image-2 无参考图时使用 `/v1/images/generations`；存在引用图时使用 `/v1/images/edits`，以 multipart/form-data 的 `image` 文件字段传入第一张参考图
 - 场景约束: 工具型应用采用“导航 → 内容区 → 操作面板”的效率优先布局，信息密度适中，强调清晰的表单状态和请求反馈。
 - 视觉意图承诺:
   - Tone: 沿用场景默认
@@ -53,8 +53,8 @@
   - Gemini 生成配置 → generationConfig.responseModalities=["IMAGE"]
   - Gemini 返回图片 → candidates[].content.parts[].inlineData.data
   - GPT-Image-2 基础地址 → {baseUrl}/v1
-  - GPT-Image-2 请求地址 → POST {baseUrl}/v1/images/generations
-  - GPT-Image-2 请求字段 → model, prompt, n, size
+  - GPT-Image-2 文生图请求地址 → POST {baseUrl}/v1/images/generations，JSON 字段为 model, prompt, n, size
+  - GPT-Image-2 引用编辑请求地址 → POST {baseUrl}/v1/images/edits，multipart/form-data 字段为 model, image（单个文件）, prompt, n, size
   - GPT-Image-2 返回图片 → data[].b64_json
   - 图片结果 → Base64 转 Blob/Data URL 后统一渲染、下载
 - 默认服务地址:
