@@ -44,6 +44,7 @@ export interface AnalyzeImageParams {
     model: VisionModelId;
     imageDataUrl: string;
     messages: VisionMessage[];
+    originalPrompt?: string;
     signal?: AbortSignal;
     onDelta: (text: string) => void;
 }
@@ -197,7 +198,7 @@ export async function analyzeImageStream(params: AnalyzeImageParams) {
         ? {
               role: message.role,
               content: [
-                  { type: 'text', text: message.content },
+                  { type: 'text', text: params.originalPrompt ? `这张图片原来的生成 Prompt 是：\n${params.originalPrompt}\n\n请结合原始创作意图回答，不要提出与其冲突的无关改造。\n\n用户问题：\n${message.content}` : message.content },
                   { type: 'image_url', image_url: { url: params.imageDataUrl } },
               ],
           }
