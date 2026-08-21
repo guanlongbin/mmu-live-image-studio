@@ -4,7 +4,7 @@
   owner: guanyalong
   source: TokenVerse 图片生成 API + 浏览器本地存储
   files: web/app/src/pages/HomePage1.vue
-  description: API 配置、浏览器密钥与偏好设置、灵感模板、参考图上传、可取消生成、多图容错、引用来源→Prompt→结果的创作链路、轮次对比与批量操作，以及可搜索/收藏/导入导出的本地历史。
+  description: API 配置、浏览器密钥与偏好设置、自适应 Prompt 编辑器与本地可维护灵感模板、参考图上传、可取消生成、多图容错、引用来源→Prompt→结果的创作链路、轮次对比与批量操作，以及可搜索/收藏/导入导出的本地历史。
 
 - id: image-generation-api
   owner: guanyalong
